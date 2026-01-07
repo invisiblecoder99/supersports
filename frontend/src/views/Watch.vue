@@ -175,4 +175,23 @@ watch(streamUrl, () => {
 
 watch(chatMessages, () => scrollToBottom(), { deep: true })
 
-onMo
+onMounted(async () => {
+  try {
+    const response = await api.get('/streams/' + route.params.id)
+    stream.value = response.data.stream
+    streamUrl.value = response.data.streamUrl
+    hasAccess.value = response.data.hasAccess
+    await loadChatMessages()
+    chatPollInterval = setInterval(loadChatMessages, 3000)
+  } catch (error) {
+    console.error('Failed to load stream:', error)
+  } finally {
+    loading.value = false
+  }
+})
+
+onUnmounted(() => {
+  if (hls) hls.destroy()
+  if (chatPollInterval) clearInterval(chatPollInterval)
+})
+</script>
