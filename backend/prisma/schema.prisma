@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  password      String
+  name          String
+  role          String         @default("user")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  subscriptions Subscription[]
+  payments      Payment[]
+}
+
+model Plan {
+  id            String         @id @default(uuid())
+  name          String
+  type          String
+  price         Float
+  currency      String         @default("USD")
+  duration      Int
+  description   String?
+  features      String?
+  isActive      Boolean        @default(true)
+  seasonId      String?
+  season        Season?        @relation(fields: [seasonId], references: [id])
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  subscriptions Subscription[]
+}
+
+model Season {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  thumbnail   String?
+  startDate   DateTime
+  endDate     DateTime
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  streams     Stream[]
+  plans       Plan[]
+}
+
+model Stream {
+  id           String    @id @default(uuid())
+  title        String
+  description  String?
+  thumbnail    String?
+  streamUrl    String
+  streamType   String    @default("hls")
+  seasonId     String
+  season       Season    @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  scheduledAt  DateTime?
+  endTime      DateTime?
+  isLive       Boolean   @default(false)
+  isVod        Boolean   @default(false)
+  viewCount    Int       @default(0)
+  isFree       Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Subscription {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId    String
+  plan      Plan     @relation(fields: [planId], references: [id])
+  status    String   @default("active")
+  startDate DateTime @default(now())
+  endDate   DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([planId])
+}
+
+model Payment {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount          Float
+  currency        String   @default("USD")
+  status          String   @default("pending")
+  provider        String
+  providerPaymentId String?
+  metadata        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Setting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
