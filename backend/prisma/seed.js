@@ -36,11 +36,15 @@ async function main() {
   await prisma.plan.upsert({ where: { id: 'pl-season' }, update: {}, create: { id: 'pl-season', name: 'Premier League Pass', type: 'seasonal', price: 99.99, duration: 300, seasonId: pl.id, features: '["All PL matches","VOD archive"]' } });
   await prisma.plan.upsert({ where: { id: 'cl-season' }, update: {}, create: { id: 'cl-season', name: 'Champions League Pass', type: 'seasonal', price: 79.99, duration: 270, seasonId: cl.id, features: '["All CL matches","VOD archive"]' } });
 
-  await prisma.stream.createMany({ data: [
+  const streams = [
     { title: 'Man United vs Liverpool', streamUrl: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8', seasonId: pl.id, scheduledAt: new Date(Date.now() + 86400000), isFree: false },
     { title: 'Arsenal vs Chelsea - FREE', streamUrl: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8', seasonId: pl.id, isFree: true },
     { title: 'Real Madrid vs Bayern', streamUrl: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8', seasonId: cl.id, isLive: true },
-  ], skipDuplicates: true });
+  ];
+  for (const stream of streams) {
+    const existing = await prisma.stream.findFirst({ where: { title: stream.title, seasonId: stream.seasonId } });
+    if (!existing) await prisma.stream.create({ data: stream });
+  }
 
   console.log('Seeded! Admin: admin@supersports.com / admin123');
 }
