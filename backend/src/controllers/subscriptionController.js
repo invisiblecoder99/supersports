@@ -26,6 +26,29 @@ export const checkAccess = async (req, res) => {
   }
 };
 
+export const createSubscription = async (req, res) => {
+  try {
+    const { paymentId } = req.body;
+    const payment = await prisma.payment.findUnique({ where: { id: paymentId } });
+    if (!payment) return res.status(404).json({ error: 'Payment not found' });
+    if (payment.userId !== req.user.id) return res.status(403).json({ error: 'Unauthorized' });
+    if (payment.status !== 'completed') return res.status(400).json({ error: 'Payment not completed' });
+    const metadata = JSON.parse(payment.metadata || '{}');
+    const plan = await prisma.plan.findUnique({ where: { id: metadata.planId } });
+    if (!plan) return res.status(404).json({ error: 'Plan not found' });
+    const existingSub = await prisma.subscription.findFirst({ where: { userId: req.user.id, planId: plan.id, status: 'active', endDate: { gte: new Date() } } });
+    if (existingSub) return res.json({ message: 'Subscription already active', subscription: existingSub });
+    const startDate = new Date();
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + plan.duration);
+    const subscription = await prisma.subscription.create({ data: { userId: req.user.id, planId: plan.id, startDate, endDate, status: 'active' }, include: { plan: true } });
+    res.status(201).json({ message: 'Subscription activated', subscription });
+  } catch (error) {
+    console.error('Create subscription error:', error);
+    res.status(500).json({ error: 'Failed to create subscription' });
+  }
+};
+
 export const initiateStripePayment = async (req, res) => {
   try {
     if (!stripe) return res.status(500).json({ error: 'Stripe not configured' });
