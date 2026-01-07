@@ -26,7 +26,7 @@ A full-stack sports streaming platform built with Vue.js 3 and Node.js, featurin
 ### Backend
 - Node.js + Express
 - Prisma ORM
-- SQLite (easily switchable to PostgreSQL)
+- SQLite/PostgreSQL
 - JWT Authentication
 - bcrypt
 
@@ -53,60 +53,83 @@ supersports/
 └── vercel.json              # Vercel deployment config
 ```
 
-## Deployment Instructions
+---
 
-### Option 1: Deploy Frontend to Vercel + Backend to Railway/Render
+## Railway Deployment (Recommended)
 
-#### Frontend (Vercel)
+Deploy both frontend and backend on Railway with one project.
 
-1. Push code to GitHub
-2. Go to [vercel.com](https://vercel.com) and import your repository
-3. Configure:
-   - **Framework Preset**: Vue.js
-   - **Root Directory**: `frontend`
-   - **Build Command**: `npm run build`
-   - **Output Directory**: `dist`
-4. Add environment variable:
-   ```
-   VITE_API_URL=https://your-backend-url.com/api
-   ```
-5. Deploy
+### Step 1: Create Railway Project
 
-#### Backend (Railway)
+1. Go to [railway.app](https://railway.app) and login
+2. Click **New Project** → **Deploy from GitHub repo**
+3. Select `supersports` repository
 
-1. Go to [railway.app](https://railway.app)
-2. Create new project → Deploy from GitHub
-3. Select the `backend` folder
-4. Add environment variables:
-   ```
-   DATABASE_URL=postgresql://...  (Railway provides this)
-   JWT_SECRET=your-super-secret-key
-   PORT=3000
-   NODE_ENV=production
-   FRONTEND_URL=https://your-frontend.vercel.app
-   STRIPE_SECRET_KEY=sk_live_...
-   STRIPE_WEBHOOK_SECRET=whsec_...
-   ```
-5. Deploy
+### Step 2: Deploy Backend
 
-#### Backend (Render)
-
-1. Go to [render.com](https://render.com)
-2. Create new Web Service
-3. Connect your GitHub repo
-4. Configure:
+1. Click **Add Service** → **GitHub Repo** → Select `supersports`
+2. In service settings:
    - **Root Directory**: `backend`
-   - **Build Command**: `npm install && npx prisma generate && npx prisma db push`
-   - **Start Command**: `npm start`
-5. Add environment variables (same as Railway)
+   - **Start Command**: `npx prisma db push && npm start`
+3. Add **PostgreSQL** database:
+   - Click **Add Service** → **Database** → **PostgreSQL**
+4. Set environment variables (click on backend service → Variables):
 
-### Option 2: Local Development
+```env
+DATABASE_URL=${{Postgres.DATABASE_URL}}
+JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+PORT=3000
+NODE_ENV=production
+FRONTEND_URL=https://your-frontend.up.railway.app
 
-#### Prerequisites
+# Payment (optional - add when ready)
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+BTCPAY_URL=
+BTCPAY_STORE_ID=
+BTCPAY_API_KEY=
+NOWPAYMENTS_API_KEY=
+NOWPAYMENTS_IPN_SECRET=
+```
+
+5. Deploy and note the backend URL (e.g., `https://supersports-backend.up.railway.app`)
+
+### Step 3: Deploy Frontend
+
+1. Click **Add Service** → **GitHub Repo** → Select `supersports`
+2. In service settings:
+   - **Root Directory**: `frontend`
+   - **Build Command**: `npm install && npm run build`
+   - **Start Command**: `npm run preview -- --host 0.0.0.0 --port $PORT`
+3. Set environment variables:
+
+```env
+VITE_API_URL=https://your-backend-url.up.railway.app/api
+```
+
+4. Deploy
+
+### Step 4: Update CORS
+
+After both are deployed, update backend's `FRONTEND_URL` to match your frontend URL.
+
+### Step 5: Seed Database (Optional)
+
+1. Open backend service in Railway
+2. Go to **Settings** → **Run Command**
+3. Run: `node prisma/seed.js`
+
+Or connect to the service shell and run the seed script.
+
+---
+
+## Local Development
+
+### Prerequisites
 - Node.js 18+
 - npm or yarn
 
-#### Backend Setup
+### Backend Setup
 
 ```bash
 cd supersports/backend
@@ -133,7 +156,7 @@ npm run db:seed
 npm run dev
 ```
 
-#### Frontend Setup
+### Frontend Setup
 
 ```bash
 cd supersports/frontend
@@ -147,33 +170,7 @@ npm run dev
 
 The frontend runs on `http://localhost:5173` and proxies API requests to `http://localhost:3000`.
 
-### Option 3: Docker Deployment
-
-```dockerfile
-# Backend Dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY backend/package*.json ./
-RUN npm install
-COPY backend/ .
-RUN npx prisma generate
-EXPOSE 3000
-CMD ["npm", "start"]
-```
-
-```dockerfile
-# Frontend Dockerfile
-FROM node:18-alpine as build
-WORKDIR /app
-COPY frontend/package*.json ./
-RUN npm install
-COPY frontend/ .
-RUN npm run build
-
-FROM nginx:alpine
-COPY --from=build /app/dist /usr/share/nginx/html
-EXPOSE 80
-```
+---
 
 ## Default Accounts
 
@@ -184,6 +181,48 @@ After running the seed script:
 | admin@supersports.com | admin123 | Admin |
 | user@example.com | user123 | User |
 
+---
+
+## Environment Variables
+
+### Backend (.env)
+
+```env
+# Database
+DATABASE_URL="file:./dev.db"                    # SQLite (dev)
+# DATABASE_URL="postgresql://user:pass@host:5432/db"  # PostgreSQL (prod)
+
+# Auth
+JWT_SECRET="your-super-secret-jwt-key"
+
+# Server
+PORT=3000
+NODE_ENV=development
+FRONTEND_URL="http://localhost:5173"
+
+# Stripe
+STRIPE_SECRET_KEY=""
+STRIPE_WEBHOOK_SECRET=""
+
+# BTCPay Server
+BTCPAY_URL=""
+BTCPAY_STORE_ID=""
+BTCPAY_API_KEY=""
+
+# NOWPayments
+NOWPAYMENTS_API_KEY=""
+NOWPAYMENTS_IPN_SECRET=""
+```
+
+### Frontend (.env)
+
+```env
+VITE_API_URL=http://localhost:3000/api    # Dev
+# VITE_API_URL=https://api.yourdomain.com/api  # Prod
+```
+
+---
+
 ## API Endpoints
 
 ### Auth
@@ -191,10 +230,12 @@ After running the seed script:
 - `POST /api/auth/login` - Login
 - `GET /api/auth/profile` - Get current user
 - `PUT /api/auth/profile` - Update profile
+- `GET /api/auth/users` - List users (admin)
 
 ### Seasons
 - `GET /api/seasons` - List all seasons
 - `GET /api/seasons/:id` - Get season details
+- `GET /api/seasons/:id/streams` - Get season streams
 - `POST /api/seasons` - Create season (admin)
 - `PUT /api/seasons/:id` - Update season (admin)
 - `DELETE /api/seasons/:id` - Delete season (admin)
@@ -203,32 +244,20 @@ After running the seed script:
 - `GET /api/streams` - List all streams
 - `GET /api/streams/:id` - Get stream (includes access check)
 - `GET /api/streams/:id/chat` - Get chat messages
-- `POST /api/streams/:id/chat` - Send chat message
+- `POST /api/streams/:id/chat` - Send chat message (auth)
+- `POST /api/streams` - Create stream (admin)
+- `PUT /api/streams/:id` - Update stream (admin)
 - `PATCH /api/streams/:id/live` - Toggle live status (admin)
+- `DELETE /api/streams/:id` - Delete stream (admin)
 
 ### Plans & Subscriptions
 - `GET /api/plans` - List subscription plans
 - `POST /api/subscriptions/checkout` - Create checkout session
 - `GET /api/subscriptions/my` - Get user's subscriptions
 - `POST /api/subscriptions/grant` - Grant access (admin)
+- `GET /api/subscriptions/admin/all` - List all subscriptions (admin)
 
-## Payment Setup
-
-### Stripe
-1. Get API keys from [Stripe Dashboard](https://dashboard.stripe.com)
-2. Set `STRIPE_SECRET_KEY` in backend .env
-3. Set up webhook endpoint: `https://your-backend.com/api/subscriptions/webhook/stripe`
-4. Set `STRIPE_WEBHOOK_SECRET` from webhook settings
-
-### BTCPay Server
-1. Deploy BTCPay Server or use a hosted instance
-2. Create a store and get API key
-3. Set `BTCPAY_URL`, `BTCPAY_STORE_ID`, `BTCPAY_API_KEY`
-
-### NOWPayments
-1. Sign up at [nowpayments.io](https://nowpayments.io)
-2. Get API key from dashboard
-3. Set `NOWPAYMENTS_API_KEY` and `NOWPAYMENTS_IPN_SECRET`
+---
 
 ## Switching to PostgreSQL
 
@@ -249,6 +278,28 @@ After running the seed script:
    ```bash
    npx prisma db push
    ```
+
+---
+
+## Payment Setup
+
+### Stripe
+1. Get API keys from [Stripe Dashboard](https://dashboard.stripe.com)
+2. Set `STRIPE_SECRET_KEY` in backend .env
+3. Set up webhook: `https://your-backend.com/api/subscriptions/webhook/stripe`
+4. Set `STRIPE_WEBHOOK_SECRET`
+
+### BTCPay Server
+1. Deploy BTCPay Server or use hosted instance
+2. Create store and get API key
+3. Set `BTCPAY_URL`, `BTCPAY_STORE_ID`, `BTCPAY_API_KEY`
+
+### NOWPayments
+1. Sign up at [nowpayments.io](https://nowpayments.io)
+2. Get API key
+3. Set `NOWPAYMENTS_API_KEY` and `NOWPAYMENTS_IPN_SECRET`
+
+---
 
 ## License
 
