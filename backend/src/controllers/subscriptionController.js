@@ -146,4 +146,7 @@ export const cancelSubscription = async (req, res) => {
   try {
     const subscription = await prisma.subscription.update({ where: { id: req.params.subscriptionId }, data: { status: 'cancelled' } });
     res.json({ message: 'Subscription cancelled', subscription });
-  } catch 
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to cancel subscription' });
+  }
+};
