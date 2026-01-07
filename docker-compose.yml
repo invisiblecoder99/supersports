@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: supersports-backend
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=file:./data/supersports.db
+      - JWT_SECRET=${JWT_SECRET:-supersecretjwtkey123}
+      - PORT=3000
+      - NODE_ENV=production
+      - FRONTEND_URL=http://localhost
+    volumes:
+      - backend-data:/app/data
+    networks:
+      - supersports-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=/api
+    container_name: supersports-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - supersports-network
+
+networks:
+  supersports-network:
+    driver: bridge
+
+volumes:
+  backend-data:

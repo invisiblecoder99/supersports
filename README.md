@@ -304,3 +304,61 @@ VITE_API_URL=http://localhost:3000/api    # Dev
 ## License
 
 MIT
+
+---
+
+## Single Docker Deployment (Recommended for Railway)
+
+The root `Dockerfile` runs both frontend and backend in a single container.
+
+### Railway (Single Service)
+
+1. Go to [railway.app](https://railway.app)
+2. **New Project** → **Deploy from GitHub** → Select `supersports`
+3. Railway will auto-detect the root `Dockerfile`
+4. Add environment variables:
+   ```
+   JWT_SECRET=your-super-secret-key-change-this
+   FRONTEND_URL=https://your-app.up.railway.app
+   ```
+5. Deploy!
+
+The app will be available at your Railway URL with:
+- Frontend served on `/`
+- API served on `/api/*`
+
+### Docker Compose (Local/VPS)
+
+```bash
+cd supersports
+
+# Build and run
+docker-compose up -d --build
+
+# View logs
+docker-compose logs -f
+
+# Stop
+docker-compose down
+```
+
+Access at `http://localhost`
+
+### Single Docker (Manual)
+
+```bash
+cd supersports
+
+# Build
+docker build -t supersports .
+
+# Run
+docker run -d -p 80:80 \
+  -e JWT_SECRET=your-secret-key \
+  -e FRONTEND_URL=http://localhost \
+  --name supersports \
+  supersports
+
+# Seed database (optional)
+docker exec supersports sh -c "cd /app/backend && node prisma/seed.js"
+```
